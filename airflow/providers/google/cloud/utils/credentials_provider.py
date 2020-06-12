@@ -27,6 +27,7 @@ from typing import Dict, Optional, Sequence, Tuple
 from urllib.parse import urlencode
 
 import google.auth
+from google.oauth2.credentials import Credentials
 import google.oauth2.service_account
 from google.auth.environment_vars import CREDENTIALS, LEGACY_PROJECT, PROJECT
 
@@ -224,6 +225,21 @@ def get_credentials_and_project_id(
             raise AirflowException(
                 'Legacy P12 key file are not supported, use a JSON key file.'
             )
+        elif key_path.endswith('.token'):
+            log.debug('Getting connection using Token key file %s', key_path)
+            
+            with open(key_path) as json_file:
+                data = json.load(json_file)
+            credentials = Credentials(
+                token=data['access_token'],
+                refresh_token=data['refresh_token'],
+                token_uri=data['token_uri'], 
+                client_id=data['client_id'],
+                client_secret=data['client_secret'],
+            )
+
+            project_id = "hallowed-pipe-153306"
+            
         else:
             raise AirflowException('Unrecognised extension for key file.')
     else:
