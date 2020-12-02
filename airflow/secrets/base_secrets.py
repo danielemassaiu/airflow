@@ -15,16 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import warnings
 from abc import ABC
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
-from airflow.models.connection import Connection
+if TYPE_CHECKING:
+    from airflow.models.connection import Connection
 
 
 class BaseSecretsBackend(ABC):
-    """
-    Abstract base class to retrieve secrets given a conn_id and construct a Connection object
-    """
+    """Abstract base class to retrieve Connection object given a conn_id or Variable given a key"""
 
     def __init__(self, **kwargs):
         pass
@@ -52,24 +52,54 @@ class BaseSecretsBackend(ABC):
         """
         raise NotImplementedError()
 
-    def get_connections(self, conn_id: str) -> List[Connection]:
+    def get_connection(self, conn_id: str) -> Optional['Connection']:
         """
         Return connection object with a given ``conn_id``.
 
         :param conn_id: connection id
         :type conn_id: str
         """
+        from airflow.models.connection import Connection
+
         conn_uri = self.get_conn_uri(conn_id=conn_id)
         if not conn_uri:
-            return []
+            return None
         conn = Connection(conn_id=conn_id, uri=conn_uri)
-        return [conn]
+        return conn
+
+    def get_connections(self, conn_id: str) -> List['Connection']:
+        """
+        Return connection object with a given ``conn_id``.
+
+        :param conn_id: connection id
+        :type conn_id: str
+        """
+        warnings.warn(
+            "This method is deprecated. Please use "
+            "`airflow.secrets.base_secrets.BaseSecretsBackend.get_connection`.",
+            PendingDeprecationWarning,
+            stacklevel=2,
+        )
+        conn = self.get_connection(conn_id=conn_id)
+        if conn:
+            return [conn]
+        return []
 
     def get_variable(self, key: str) -> Optional[str]:
         """
-        Return value for Airflow Connection
+        Return value for Airflow Variable
 
         :param key: Variable Key
+        :type key: str
         :return: Variable Value
         """
         raise NotImplementedError()
+
+    def get_config(self, key: str) -> Optional[str]:  # pylint: disable=unused-argument
+        """
+        Return value for Airflow Config Key
+
+        :param key: Config Key
+        :return: Config Value
+        """
+        return None
